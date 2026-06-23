@@ -11034,43 +11034,88 @@ function Piano({prof,wx,setPg}){
 }
 /* ===== fine Sezione PIANO ===== */
 
-/* ===== LAWNLY RE-SKIN — Sezione MAGAZZINO (1:1 plus.html) ===== */
-function _catClass(c){c=(c||'').toLowerCase();
-  if(/sabbia|silice/.test(c))return'cat-sab';
-  if(/terr|terric|top.?dress/.test(c))return'cat-ter';
-  if(/sement|semente|seed/.test(c))return'cat-sem';
-  if(/liquid|biostim|fungic|diserb|\bml\b|litri|\bl\b/.test(c))return'cat-liq';
-  return'cat-gran';}
-function _isMaterial(c){c=(c||'').toLowerCase();return /sabbia|silice|terr|terric|top.?dress/.test(c);}
-function _mSvg(k){
-  if(k==='cat-liq')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7S5 9.5 5 14a7 7 0 0 0 14 0c0-4.5-7-11.3-7-11.3Z"/></svg>`;
-  if(k==='cat-sem')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c-1-5 1-9 5-11-1 5-2 8-5 11Z"/><path d="M12 21C8 18 6 14 7 9c4 2 6 6 5 12Z"/></svg>`;
-  if(k==='cat-sab')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18M5 14h.01M9 14h.01M13 14h.01M17 14h.01M7 10.5h.01M11 10.5h.01M15 10.5h.01M9 7h.01M13 7h.01"/></svg>`;
-  if(k==='cat-ter')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4-9-4Z"/><path d="M3 13l9 4 9-4M3 18l9 4 9-4"/></svg>`;
-  return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="1.6"/><circle cx="13.5" cy="8" r="1.6"/><circle cx="16.5" cy="12.5" r="1.6"/><circle cx="11" cy="13" r="1.6"/><circle cx="7" cy="14.5" r="1.6"/><circle cx="14" cy="16.5" r="1.6"/></svg>`;
+/* ===== LAWNLY RE-SKIN — Sezione MAGAZZINO (card ricche + dettaglio) ===== */
+const _MAGMM=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+function _magType(p){const st=((p&&(p.subtype||p.type))||'').toLowerCase();if(/liquid/.test(st))return{l:'LIQUIDO',c:'liq'};if(/sement|seed/.test(st))return{l:'SEMENTE',c:'sem'};if(/sabbia/.test(st))return{l:'SABBIA',c:'sab'};if(/terr/.test(st))return{l:'TERRICCIO',c:'ter'};return{l:(st?st.toUpperCase():'GRANULARE'),c:'gran'};}
+function _magIcon(c){if(c==='liq')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7S5 9.5 5 14a7 7 0 0 0 14 0c0-4.5-7-11.3-7-11.3Z"/></svg>`;if(c==='sem')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c-1-5 1-9 5-11-1 5-2 8-5 11Z"/><path d="M12 21C8 18 6 14 7 9c4 2 6 6 5 12Z"/></svg>`;if(c==='sab')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18M5 14h.01M9 14h.01M13 14h.01M17 14h.01M7 10.5h.01M11 10.5h.01M15 10.5h.01"/></svg>`;if(c==='ter')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4-9-4Z"/><path d="m3 14 9 4 9-4"/></svg>`;return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="1.5"/><circle cx="13.5" cy="8" r="1.5"/><circle cx="16.5" cy="12.5" r="1.5"/><circle cx="11" cy="13" r="1.5"/><circle cx="7" cy="14.5" r="1.5"/><circle cx="14" cy="16.5" r="1.5"/></svg>`;}
+function _magSeason(months){if(!Array.isArray(months)||!months.length)return '';if(months.length>=12)return 'Gen–Dic (tutto l\'anno)';const ms=[...new Set(months)].sort((a,b)=>a-b);const r=[];let st=ms[0],pv=ms[0];for(let i=1;i<ms.length;i++){if(ms[i]===pv+1){pv=ms[i];}else{r.push([st,pv]);st=ms[i];pv=ms[i];}}r.push([st,pv]);return r.map(([a,b])=>a===b?_MAGMM[a-1]:(_MAGMM[a-1]+'–'+_MAGMM[b-1])).join(', ');}
+function _magCatLookup(p){try{const cat=(typeof window!=='undefined'&&window.__LAWNLY_CATALOG__)||(typeof APP_PRODUCT_CATALOG!=='undefined'?APP_PRODUCT_CATALOG:[])||[];if(p.productId){const m=cat.find(x=>x.id===p.productId);if(m)return m;}const needle=((p.brand?p.brand+' ':'')+(p.name||'')).toLowerCase().trim();return cat.find(x=>(((x.brand?x.brand+' ':'')+x.name).toLowerCase())===needle)||cat.find(x=>(((x.brand?x.brand+' ':'')+x.name).toLowerCase()).includes(needle.split(' ').slice(0,2).join(' ')))||null;}catch(e){return null;}}
+function _magDoseStr(c){if(!c||!c.dose)return '';const d=c.dose;if(d.min==null)return '';return d.min+((d.max&&d.max!==d.min)?('–'+d.max):'')+' '+((d.unit||'g/m²').replace('g/m2','g/m²').replace('ml/m2','ml/m²'));}
+function _magPackStr(c){if(c&&c.formats&&c.formats.length)return c.formats.map(f=>f.label||((f.size||'')+' '+(f.unit||''))).join(', ');return '';}
+function _magComposition(c){if(!c)return '';const parts=[];if(c.npkLabel||c.npk)parts.push('NPK '+(c.npkLabel||c.npk));if(c.secondary&&typeof c.secondary==='object')Object.entries(c.secondary).forEach(([k,v])=>parts.push(k+' '+v+'%'));if(c.organic)parts.push('organico');if(c.slowRelease&&c.slowRelease.enabled)parts.push('cessione lenta'+(c.slowRelease.tech?(' '+c.slowRelease.tech):''));return parts.join(' · ');}
+function MagProdDetail({item,cat,onClose}){
+  const X=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const t=_magType(cat||item);
+  const c=cat||{};
+  const brand=item.brand||c.brand||'';
+  const nameOnly=(c.name||item.name||'Prodotto');
+  const sub=c.subtype?(c.type?(c.type.charAt(0).toUpperCase()+c.type.slice(1)+' '+c.subtype):c.subtype):(c.type||'');
+  const desc=c.notes||item.notes||'';
+  const qty=(typeof whTotal==='function')?whTotal(item):Number(item.qty||0);
+  const owned=qty>0||(Array.isArray(item.packages)&&item.packages.length);
+  const comp=_magComposition(c);
+  const dose=_magDoseStr(c)||(c.dose&&c.dose.text)||'';
+  const pack=_magPackStr(c)||item.format||'';
+  const period=(()=>{const s=_magSeason(c.seasonMacro||c.seasonMicro);return s;})();
+  const dur=(c.durationDays&&c.durationDays.length)?(c.durationDays.join('–')+' giorni'):'';
+  const gran=c.granulometry||'';
+  const blk=(ic,lab,val)=>val?html`<div class="pd-block"><div class="pd-blab"><span class="pd-bic">${ic}</span>${lab}</div><div class="pd-bval">${val}</div></div>`:'';
+  const icComp=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v3.5M17 3v3.5M7 6.5c0 3 5 4 5 8s-5 5-5 8M17 6.5c0 3-5 4-5 8M5 3h4M15 3h4M5 21h4M15 21h4"/></svg>`;
+  const icDose=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 3h8"/></svg>`;
+  const icBox=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4-9-4Z"/><path d="m3 8 0 8 9 4 9-4 0-8"/><path d="M12 12v8"/></svg>`;
+  const icCal=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>`;
+  const icDur=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
+  const icGran=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="1.3"/><circle cx="12" cy="7" r="1.3"/><circle cx="17" cy="9" r="1.3"/><circle cx="9" cy="13" r="1.3"/><circle cx="15" cy="14" r="1.3"/><circle cx="11" cy="17" r="1.3"/></svg>`;
+  return html`<${ModalPortal}><div class="rdz" style="position:fixed;inset:0;z-index:200;padding:0;min-height:0;display:block;gap:0">
+    <div class="ov on" onClick=${onClose}></div>
+    <div class="sheet on"><div class="sh-handle"></div>
+      <div class="sh-body" style="padding-top:6px;">
+        <div class="pd-head">
+          <span class=${'pd-pic '+t.c}>${_magIcon(t.c)}</span>
+          <div class="pd-headm">
+            <div class="pd-toprow"><span class=${'magc-badge '+t.c}>${t.l}</span><div class="sh-x" onClick=${onClose} style="margin-left:auto;">${X}</div></div>
+            <div class="pd-name">${nameOnly}</div>
+            ${sub?html`<div class="pd-sub">${sub}</div>`:''}
+            ${brand?html`<div class="pd-brand">${brand}</div>`:''}
+          </div>
+        </div>
+        ${desc?html`<div class="pd-desc">${desc}</div>`:''}
+        ${blk(icComp,'COMPOSIZIONE',comp)}
+        ${blk(icDose,'DOSAGGIO',dose)}
+        ${blk(icBox,'CONFEZIONE',pack)}
+        ${blk(icCal,'PERIODO',period)}
+        ${blk(icDur,'DURATA EFFETTO',dur)}
+        ${blk(icGran,'GRANULOMETRIA',gran)}
+        ${owned?blk(icBox,'LA TUA SCORTA',(qty||0)+' '+(item.unit||'conf')+(item.format?(' · '+item.format):'')):''}
+      </div>
+    </div>
+  </div></${ModalPortal}>`;
 }
 function Magazzino2({prof,setPg}){
   const wh=S.get('dss_warehouse_v2',[])||[];
-  const items=wh.filter(Boolean).map(p=>{
-    const qty=(typeof whTotal==='function')?whTotal(p):Number(p.qty||0);
-    const reorder=qty<=(p.reorderAt||p.minQty||1);
-    const cat=_catClass(p.category||p.unit||p.format||p.name);
-    const pct=reorder?14:(qty<=3?55:80);
-    const meta=[p.category,p.format||(p.unit?('conf. '+p.unit):'')].filter(Boolean).join(' · ');
-    const qd=Number.isInteger(qty)?qty:(''+qty).replace('.',',');
-    return {name:[p.brand,p.name].filter(Boolean).join(' '),meta,qty:qd,unit:p.unit||'',reorder,cat,pct,material:_isMaterial(p.category||p.name)};
-  });
+  const [shProd,setShProd]=useState(false);
+  const [detail,setDetail]=useState(null);
+  const items=wh.filter(Boolean).map((p)=>{const c=_magCatLookup(p);const qty=(typeof whTotal==='function')?whTotal(p):Number(p.qty||0);const reorder=qty<=(p.reorderAt||p.minQty||1);return {raw:p,cat:c,qty,reorder,material:_isMaterial((c&&c.type)||p.category||p.name)};});
   const tot=items.length, low=items.filter(i=>i.reorder).length, ok=tot-low;
   const prods=items.filter(i=>!i.material), mats=items.filter(i=>i.material);
-  const open=()=>setPg&&setPg('magazzino');
-  const [shProd,setShProd]=useState(false);
-  const row=(p,i)=>html`<div class="prod" key=${i} onClick=${open}>
-    <span class=${'prod-ic '+p.cat}>${_mSvg(p.cat)}</span>
-    <div class="prod-m"><div class="prod-n">${p.name||'Prodotto'}</div>${p.meta?html`<div class="prod-meta">${p.meta}</div>`:''}
-      <div class="prod-bar"><i style=${'width:'+p.pct+'%;background:'+(p.reorder?'var(--red)':'var(--green)')}></i></div></div>
-    <div class="prod-r"><div class="prod-q">${p.qty}<small> ${p.unit}</small></div><span class=${'pbadge '+(p.reorder?'r':'g')}>${p.reorder?'Riordina':'OK'}</span></div>
-  </div>`;
-
+  const chev=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+  const icBox=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4-9-4Z"/><path d="m3 8 0 8 9 4 9-4 0-8"/></svg>`;
+  const icDose=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 3h8"/></svg>`;
+  const icCal=html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>`;
+  const card=(it,i)=>{const p=it.raw,c=it.cat,t=_magType(c||p);const name=[p.brand,p.name].filter(Boolean).join(' ')||(c?((c.brand?c.brand+' ':'')+c.name):'Prodotto');const npk=(c&&(c.npkLabel||c.npk))||p.npkLabel;const desc=(c&&c.notes)||p.notes||'';const pack=_magPackStr(c)||p.format||'';const dose=_magDoseStr(c);const seas=_magSeason(c&&(c.seasonMacro||c.seasonMicro));
+    return html`<div class="magc" key=${i} onClick=${()=>setDetail(it)}>
+      <span class=${'magc-pic '+t.c}>${_magIcon(t.c)}</span>
+      <div class="magc-c">
+        <div class="magc-top"><span class=${'magc-badge '+t.c}>${t.l}</span>${npk?html`<span class="magc-npk">${npk}</span>`:''}<span class=${'magc-stock '+(it.reorder?'r':'g')}>${it.qty} ${p.unit||''}${it.reorder?' · riord.':''}</span><span class="magc-chev">${chev}</span></div>
+        <div class="magc-name">${name}</div>
+        ${desc?html`<div class="magc-desc">${desc}</div>`:''}
+        <div class="magc-rows">
+          ${pack?html`<div class="magc-row"><span class="magc-ri">${icBox}</span>${pack}</div>`:''}
+          ${dose?html`<div class="magc-row"><span class="magc-ri">${icDose}</span>${dose}</div>`:''}
+          ${seas?html`<div class="magc-row"><span class="magc-ri">${icCal}</span>${seas}</div>`:''}
+        </div>
+      </div>
+    </div>`;};
   return html`<div class="rdz">
     <div class="rdz-ambient"></div>
     <div class="head"><div><div class="page-eyebrow">Scorte e prodotti</div><div class="page-title">Il <span class="serif">magazzino</span></div></div></div>
@@ -11081,9 +11126,10 @@ function Magazzino2({prof,setPg}){
     </div>
     <button class="addbtn fade" onClick=${()=>setShProd(true)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Aggiungi prodotto dal catalogo</button>
     ${tot===0?html`<div class="card fade"><div class="zp-empty">Magazzino vuoto.<br/>Aggiungi i tuoi prodotti dal catalogo per tracciarne le scorte.</div></div>`:''}
-    ${prods.length?html`<div class="card fade"><div class="c-eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="m3 8 0 8 9 5 9-5 0-8"/></svg> Prodotti in magazzino</div>${prods.map(row)}</div>`:''}
+    ${prods.length?html`<div class="mag-list fade">${prods.map(card)}</div>`:''}
+    ${mats.length?html`<div class="c-eye" style="margin:8px 4px 2px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4-9-4Z"/><path d="m3 14 9 4 9-4"/></svg> Materiali per lavorazioni</div><div class="mag-list fade">${mats.map(card)}</div>`:''}
     ${shProd?html`<${AggiungiProdottoSheet} onClose=${()=>setShProd(false)}/>`:''}
-    ${mats.length?html`<div class="card fade"><div class="c-eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4-9-4Z"/><path d="m3 14 9 4 9-4"/></svg> Materiali per lavorazioni meccaniche</div>${mats.map(row)}</div>`:''}
+    ${detail?html`<${MagProdDetail} item=${detail.raw} cat=${detail.cat} onClose=${()=>setDetail(null)}/>`:''}
   </div>`;
 }
 /* ===== fine Sezione MAGAZZINO ===== */
@@ -17702,5 +17748,48 @@ html[data-theme="dark"] .rdz .fchip.on{background:var(--green) !important;color:
 @keyframes waveA{0%{transform:rotate(0)}50%{transform:rotate(-18deg)}100%{transform:rotate(0)}}
 </style>
 <style id="lawnly-lavsec-fix">.rdz .lav-sec{display:block !important;}</style>
+<style id="lawnly-mag-cards">
+.rdz .mag-list{display:flex;flex-direction:column;gap:11px;}
+.rdz .magc{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 13px;box-shadow:0 5px 16px rgba(40,70,30,.06);cursor:pointer;transition:transform .15s;}
+.rdz .magc:active{transform:scale(.99);}
+.rdz .magc-pic{flex:0 0 auto;width:46px;height:46px;border-radius:13px;background:var(--green-soft);color:var(--green);display:flex;align-items:center;justify-content:center;}
+.rdz .magc-pic svg{width:24px;height:24px;}
+.rdz .magc-pic.liq{background:rgba(91,147,201,.14);color:#4A86C4;}
+.rdz .magc-pic.sem{background:rgba(235,166,62,.16);color:#C5872B;}
+.rdz .magc-pic.sab{background:rgba(180,160,120,.18);color:#8A7340;}
+.rdz .magc-c{flex:1;min-width:0;}
+.rdz .magc-top{display:flex;align-items:center;gap:7px;margin-bottom:3px;}
+.rdz .magc-badge{font-size:9.5px;font-weight:800;letter-spacing:.05em;padding:2px 8px;border-radius:999px;background:rgba(103,178,74,.18);color:var(--green-deep);}
+.rdz .magc-badge.liq{background:rgba(91,147,201,.16);color:#3E73AA;}
+.rdz .magc-badge.sem{background:rgba(235,166,62,.18);color:#A9711B;}
+.rdz .magc-badge.sab{background:rgba(180,160,120,.20);color:#8A7340;}
+.rdz .magc-badge.ter{background:rgba(140,110,80,.18);color:#7A5A3A;}
+.rdz .magc-npk{font-size:11.5px;font-weight:800;color:var(--t2);font-variant-numeric:tabular-nums;}
+.rdz .magc-stock{margin-left:auto;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:rgba(103,178,74,.16);color:var(--green-deep);}
+.rdz .magc-stock.r{background:rgba(224,86,62,.14);color:#C0432B;}
+.rdz .magc-chev{color:var(--t4);display:flex;}.rdz .magc-chev svg{width:15px;height:15px;}
+.rdz .magc-name{font-size:15.5px;font-weight:800;letter-spacing:-.2px;color:var(--ink);line-height:1.2;}
+.rdz .magc-desc{font-size:11.5px;color:var(--t3);line-height:1.4;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.rdz .magc-rows{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+.rdz .magc-row{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--t2);font-weight:600;}
+.rdz .magc-ri{color:var(--green);display:flex;flex-shrink:0;}.rdz .magc-ri svg{width:15px;height:15px;}
+/* dettaglio prodotto */
+.rdz .pd-head{display:flex;gap:14px;align-items:flex-start;margin-bottom:6px;}
+.rdz .pd-pic{flex:0 0 auto;width:74px;height:74px;border-radius:18px;background:var(--green-soft);color:var(--green);display:flex;align-items:center;justify-content:center;}
+.rdz .pd-pic svg{width:38px;height:38px;}
+.rdz .pd-pic.liq{background:rgba(91,147,201,.14);color:#4A86C4;}
+.rdz .pd-pic.sem{background:rgba(235,166,62,.16);color:#C5872B;}
+.rdz .pd-pic.sab{background:rgba(180,160,120,.18);color:#8A7340;}
+.rdz .pd-headm{flex:1;min-width:0;}
+.rdz .pd-toprow{display:flex;align-items:center;}
+.rdz .pd-name{font-size:23px;font-weight:800;letter-spacing:-.5px;color:var(--ink);line-height:1.1;margin-top:6px;}
+.rdz .pd-sub{font-size:14px;color:var(--t2);margin-top:2px;}
+.rdz .pd-brand{font-size:12.5px;color:var(--t4);margin-top:1px;}
+.rdz .pd-desc{font-size:14px;color:var(--t2);line-height:1.5;margin:12px 0 4px;}
+.rdz .pd-block{background:var(--card2);border-radius:14px;padding:11px 13px;margin-top:9px;}
+.rdz .pd-blab{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--green-deep);text-transform:uppercase;}
+.rdz .pd-bic{color:var(--green);display:flex;}.rdz .pd-bic svg{width:16px;height:16px;}
+.rdz .pd-bval{font-size:13.5px;color:var(--ink);line-height:1.45;margin-top:4px;}
+</style>
 </body>
 </html>
