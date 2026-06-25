@@ -6551,7 +6551,7 @@ async function loadWx(lat,lon,year,gddBase,tz){
   const _msrPromise=fetchMultiSourceRainArrays(lat,lon,_msStart,today,tz).catch(()=>({}));
   const[ar,fr,arly]=await Promise.all([
     wxFetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${year}-01-01&end_date=${archiveEndDate}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration,relative_humidity_2m_mean,relative_humidity_2m_max,dew_point_2m_mean,dew_point_2m_min,wind_speed_10m_max&timezone=${encodeURIComponent(tz)}`),
-    wxFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,relative_humidity_2m_mean,relative_humidity_2m_max,dew_point_2m_mean,dew_point_2m_min,wind_speed_10m_max,wind_direction_10m_dominant,et0_fao_evapotranspiration,sunrise,sunset&hourly=temperature_2m,relative_humidity_2m,precipitation,soil_temperature_0cm,soil_moisture_0_to_1cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm&past_days=2&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weathercode,wind_direction_10m,is_day&forecast_days=8&timezone=${encodeURIComponent(tz)}`),
+    wxFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,relative_humidity_2m_mean,relative_humidity_2m_max,dew_point_2m_mean,dew_point_2m_min,wind_speed_10m_max,wind_direction_10m_dominant,et0_fao_evapotranspiration,sunrise,sunset&hourly=temperature_2m,relative_humidity_2m,precipitation,soil_temperature_0cm,soil_moisture_0_to_1cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm&past_days=14&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weathercode,wind_direction_10m,is_day&forecast_days=8&timezone=${encodeURIComponent(tz)}`),
     wxFetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${lyStart}&end_date=${lyToday}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=${encodeURIComponent(tz)}`,null)
   ]);
   /* ── GDD cumulative + weekly buckets (0=this week, 7=8w ago) ── */
@@ -10581,7 +10581,7 @@ function Oggi({wx,prof,setPg}){
 
   const latestSoil=(()=>{const a=soilData.filter(d=>d.dt).sort((x,y)=>(y.dt||'').localeCompare(x.dt||''));return a[0]||soilData[0]||null;})();
   const _omAnchor=(wx&&wx.soilMoistRoot!=null)?{um:Math.round(wx.soilMoistRoot*100),dt:((wx.history&&wx.history.length&&wx.history[wx.history.length-1].date)||new Date().toISOString().slice(0,10)),source:'open-meteo'}:null;
-  let verdict=null;try{verdict=calcWaterBalance({wxData:wx,gardenData:{...(prof||{}),irrigationHistory:S.get('dss_irrigation_history',[])||[]},soilData:(latestSoil||_omAnchor),persistTheta:false});}catch(e){verdict=null;}
+  let verdict=null;try{verdict=calcWaterBalance({wxData:wx,gardenData:{...(prof||{}),irrigationHistory:S.get('dss_irrigation_history',[])||[]},soilData:latestSoil,persistTheta:false});}catch(e){verdict=null;}
   if(!verdict||verdict.pending){try{verdict=shouldIrrigateToday({wxData:wx,gardenData:prof,soilLastReading:latestSoil});}catch(e){}}
   const vwcRoot=verdict?((verdict.layers&&verdict.layers.root&&verdict.layers.root.vwcDisplayed)??verdict.vwcDisplayed):null;
   const isYes=verdict&&(verdict.verdict==='yes');
@@ -10762,7 +10762,6 @@ function Oggi({wx,prof,setPg}){
       <div style="flex:1;min-width:0;"><div class="verdict-q">Devo irrigare oggi?</div>
         <div class="verdict-a">${isYes?'Sì, meglio irrigare':vNoLabel}</div>
         <div class="vmoist"><span class="vmoist-v">${moist==null?'—':moist}%</span><span class="vmoist-bar"><${SlideI} mode="width" target=${moist||0}/></span></div>
-        ${(()=>{try{const omr=(wx&&wx.soilMoistRoot!=null)?wx.soilMoistRoot:null;const r7=((wx&&wx.history)||[]).slice(-7).reduce((a,d)=>a+(parseFloat(d.precipitation!=null?d.precipitation:(d.rain!=null?d.rain:0))||0),0);const anc=latestSoil?'strumento':(_omAnchor?'open-meteo':'nessuno(ricostruzione)');return html`<div style="font-size:10px;line-height:1.55;color:#b00020;background:#fff3f3;border:1px solid #f1b6c4;border-radius:8px;padding:6px 8px;margin-top:6px;font-family:ui-monospace,monospace">DEBUG · OM soilMoist=${omr==null?"NULL":omr.toFixed(3)} · OM um=${_omAnchor?_omAnchor.um:"-"} · pioggia7gg=${r7.toFixed(1)}mm · fonte=${anc} · vwc=${vwcRoot==null?"-":vwcRoot}% · θroot=${verdict&&verdict.thetaRoot!=null?(+verdict.thetaRoot).toFixed(3):'-'}</div>`;}catch(e){return '';}})()}
         ${isYes&&minZone.length?html`<div class="virr">${minZone.map((z,i)=>html`<div class="virr-z" key=${i}><span class="virr-min">${z.min}<small>min</small></span><span class="virr-zn">${z.name}</span></div>`)}</div>`:html`<div class="verdict-d">${vReason}${(nextRain)?html` · pioggia ~${nextRain.mm}mm ${nextRain.day}`:''}</div>`}</div>
       <span class="vchev">${goChev}</span>
     </div>
