@@ -370,6 +370,12 @@ function calcWaterBalance(params) {
     for (var ai = 0; ai < history.length; ai++) {
       if ((history[ai].date || '').slice(0, 10) === mDate) { anchorIdx = ai; break; }
     }
+    // Fallback: misura piu' recente dell'ultimo giorno simulato (es. misura di oggi
+    // ma history finisce a ieri) -> ancora all'ultimo giorno. Evita che l'ancora non scatti.
+    if (anchorIdx < 0 && history.length) {
+      var lastDate = (history[history.length - 1].date || '').slice(0, 10);
+      if (mDate >= lastDate) anchorIdx = history.length - 1;
+    }
     if (anchorIdx >= 0) anchorInfo = { anchored: true, idx: anchorIdx };
   }
 

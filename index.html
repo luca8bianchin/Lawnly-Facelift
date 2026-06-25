@@ -10551,6 +10551,8 @@ function Oggi({wx,prof,setPg}){
   const [sheet,setSheet]=useState(null);
   const openS=(id)=>()=>setSheet(id); const closeS=()=>setSheet(null);
   const [histTick,setHistTick]=useState(0);
+  const [,_syncTick]=useState(0);
+  useEffect(()=>{const _h=()=>_syncTick(x=>x+1);window.addEventListener('lawnly:sync',_h);return()=>window.removeEventListener('lawnly:sync',_h);},[]);
   const irrHistAll=(()=>{try{return (S.get('dss_irrigation_history',[])||[]).filter(Boolean);}catch(e){return [];}})();
   const _now7=Date.now()-7*864e5;
   const irrHist7=irrHistAll.filter(h=>{const t=new Date(h.timestamp||h.date||0).getTime();return !isNaN(t)&&t>=_now7;});
