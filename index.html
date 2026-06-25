@@ -10764,6 +10764,7 @@ function Oggi({wx,prof,setPg}){
       <div style="flex:1;min-width:0;"><div class="verdict-q">Devo irrigare oggi?</div>
         <div class="verdict-a">${isYes?'Sì, meglio irrigare':vNoLabel}</div>
         <div class="vmoist"><span class="vmoist-v">${moist==null?'—':moist}%</span><span class="vmoist-bar"><${SlideI} mode="width" target=${moist||0}/></span></div>
+        ${(()=>{try{return html`<div style="font-size:10px;line-height:1.5;color:#0a4;background:#eefef4;border:1px solid #9d9;border-radius:8px;padding:6px 8px;margin-top:6px;font-family:ui-monospace,monospace">DBG2 · misura.um=${latestSoil?(latestSoil.um==null?"vuoto":latestSoil.um):"NULL"} · dt=${latestSoil?String(latestSoil.dt).slice(0,16):"-"} · motore=${verdict?(verdict.thetaSource||"?"):"no-verdict"} · vwc=${vwcRoot==null?"-":vwcRoot}% · #misure=${(soilData||[]).length}</div>`;}catch(e){return html`<div style="font-size:10px;color:#b00">DBG2 err: ${e.message}</div>`;}})()}
         ${isYes&&minZone.length?html`<div class="virr">${minZone.map((z,i)=>html`<div class="virr-z" key=${i}><span class="virr-min">${z.min}<small>min</small></span><span class="virr-zn">${z.name}</span></div>`)}</div>`:html`<div class="verdict-d">${vReason}${(nextRain)?html` · pioggia ~${nextRain.mm}mm ${nextRain.day}`:''}</div>`}</div>
       <span class="vchev">${goChev}</span>
     </div>
