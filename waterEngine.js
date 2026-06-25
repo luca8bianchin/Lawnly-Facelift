@@ -278,11 +278,22 @@ function stepDayDual(thetaSurface, thetaRoot, day, sp, kcb, lat) {
 // 7. ANCHOR DA MISURAZIONE SUOLO (opzionale, 14gg)
 // =======================================================================
 
-function applySoilAnchor(soilData, refTheta) {
+function applySoilAnchor(soilData, refTheta, sp) {
   if (!soilData || soilData.um == null || !soilData.dt) return { theta: refTheta, anchored: false };
   var daysOld = (Date.now() - new Date(soilData.dt).getTime()) / 86400000;
   if (daysOld > 14) return { theta: refTheta, anchored: false, daysOld: daysOld, reason: 'troppo_vecchia' };
-  return { theta: clamp(soilData.um / 100, 0, 1), anchored: true, daysOld: daysOld };
+  var frac = clamp(soilData.um / 100, 0, 1);
+  var theta;
+  if (soilData.source === 'open-meteo') {
+    // Open-Meteo land-surface: gia' volumetrico (um = soilMoist m3/m3 * 100)
+    theta = clamp(soilData.um / 100, 0, 1);
+  } else if (sp) {
+    // Misura strumento/percepita: scala relativa 0-100 (wp=0%, sat=100%) -> volumetrico
+    theta = sp.wp + frac * (sp.sat - sp.wp);
+  } else {
+    theta = frac;
+  }
+  return { theta: theta, anchored: true, daysOld: daysOld, anchorSource: soilData.source || 'measure' };
 }
 
 // =======================================================================
@@ -376,7 +387,7 @@ function calcWaterBalance(params) {
 
     // Anchor: se questo e' il giorno della misura, correggi theta root
     if (anchorInfo.anchored && i === anchorIdx) {
-      var anch = applySoilAnchor(soilData, thetaRoot);
+      var anch = applySoilAnchor(soilData, thetaRoot, sp);
       if (anch.anchored) { thetaRoot = anch.theta; source = 'soil-measure-anchor'; }
     }
 
@@ -416,7 +427,7 @@ function calcWaterBalance(params) {
   for (var ri = Math.max(0, history.length - 5); ri < history.length; ri++) {
     rain5d += getField(history[ri], 'precipitation_sum', 'rain', 'precipitation') || 0;
   }
-  var forecast    = wxData.forecast || [];
+  var forecast    = wxData.forecast7 || wxData.forecast || [];
   var rainNext2d  = 0;
   for (var fi = 0; fi < Math.min(2, forecast.length); fi++) {
     rainNext2d += getField(forecast[fi], 'precipitation_sum', 'rain', 'precipitation') || 0;

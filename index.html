@@ -6551,7 +6551,7 @@ async function loadWx(lat,lon,year,gddBase,tz){
   const _msrPromise=fetchMultiSourceRainArrays(lat,lon,_msStart,today,tz).catch(()=>({}));
   const[ar,fr,arly]=await Promise.all([
     wxFetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${year}-01-01&end_date=${archiveEndDate}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration,relative_humidity_2m_mean,relative_humidity_2m_max,dew_point_2m_mean,dew_point_2m_min,wind_speed_10m_max&timezone=${encodeURIComponent(tz)}`),
-    wxFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,relative_humidity_2m_mean,relative_humidity_2m_max,dew_point_2m_mean,dew_point_2m_min,wind_speed_10m_max,wind_direction_10m_dominant,et0_fao_evapotranspiration,sunrise,sunset&hourly=temperature_2m,relative_humidity_2m,precipitation,soil_temperature_0cm,soil_moisture_0_to_1cm&past_days=2&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weathercode,wind_direction_10m,is_day&forecast_days=8&timezone=${encodeURIComponent(tz)}`),
+    wxFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,relative_humidity_2m_mean,relative_humidity_2m_max,dew_point_2m_mean,dew_point_2m_min,wind_speed_10m_max,wind_direction_10m_dominant,et0_fao_evapotranspiration,sunrise,sunset&hourly=temperature_2m,relative_humidity_2m,precipitation,soil_temperature_0cm,soil_moisture_0_to_1cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm&past_days=2&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weathercode,wind_direction_10m,is_day&forecast_days=8&timezone=${encodeURIComponent(tz)}`),
     wxFetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${lyStart}&end_date=${lyToday}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=${encodeURIComponent(tz)}`,null)
   ]);
   /* ── GDD cumulative + weekly buckets (0=this week, 7=8w ago) ── */
@@ -6763,7 +6763,8 @@ async function loadWx(lat,lon,year,gddBase,tz){
   const _ssRaw=_todayIdx>=0?fr.daily?.sunset?.[_todayIdx]:null;
   // Converti "2026-05-29T05:42" → ore decimali (es. 5.7)
   const _toHourDec=s=>{if(!s)return null;const m=String(s).match(/T(\d{2}):(\d{2})/);return m?+m[1]+(+m[2]/60):null;};
-  return{current:cur,todayData:t0,gddTotal:Math.round(gdd),gddBase,forecast7:f7,weekly8,lastYear,fungalRisk,waterStress7,history,
+  const _smRoot=(()=>{try{const sm=fr.hourly?.soil_moisture_9_to_27cm||[];const sm2=fr.hourly?.soil_moisture_3_to_9cm||[];const tm=fr.hourly?.time||[];const nowH=new Date().toISOString().slice(0,13);let idx=tm.findIndex(t=>String(t).slice(0,13)>=nowH);if(idx<0)idx=tm.length-1;for(let k=idx;k>=Math.max(0,idx-6);k--){const a=sm[k],b=sm2[k];if(a!=null||b!=null)return (a!=null&&b!=null)?(0.7*a+0.3*b):(a!=null?a:b);}return null;}catch(e){return null;}})();
+  return{current:cur,todayData:t0,gddTotal:Math.round(gdd),gddBase,forecast7:f7,weekly8,lastYear,fungalRisk,waterStress7,history,soilMoistRoot:_smRoot,
     sunriseH:_toHourDec(_srRaw),sunsetH:_toHourDec(_ssRaw),
     sunriseLabel:_srRaw?String(_srRaw).slice(11,16):null,sunsetLabel:_ssRaw?String(_ssRaw).slice(11,16):null,
     hourly:{time:fr.hourly?.time||[],temp:fr.hourly?.temperature_2m||[],hum:fr.hourly?.relative_humidity_2m||[],precip:fr.hourly?.precipitation||[],soilTemp:fr.hourly?.soil_temperature_0cm||[],soilMoist:fr.hourly?.soil_moisture_0_to_1cm||[]}};
@@ -10579,7 +10580,8 @@ function Oggi({wx,prof,setPg}){
   try{tMax=Math.round(wx?.todayData?.tmax ?? wx?.current?.tmax ?? (wx?.forecast&&wx.forecast[0]?.tmax));if(isNaN(tMax))tMax=null;wlabel=wx?.todayData?.condition||wx?.weatherLabel||null;}catch(e){}
 
   const latestSoil=(()=>{const a=soilData.filter(d=>d.dt).sort((x,y)=>(y.dt||'').localeCompare(x.dt||''));return a[0]||soilData[0]||null;})();
-  let verdict=null;try{verdict=calcWaterBalance({wxData:wx,gardenData:{...(prof||{}),irrigationHistory:S.get('dss_irrigation_history',[])||[]},soilData,persistTheta:false});}catch(e){verdict=null;}
+  const _omAnchor=(wx&&wx.soilMoistRoot!=null)?{um:Math.round(wx.soilMoistRoot*100),dt:((wx.history&&wx.history.length&&wx.history[wx.history.length-1].date)||new Date().toISOString().slice(0,10)),source:'open-meteo'}:null;
+  let verdict=null;try{verdict=calcWaterBalance({wxData:wx,gardenData:{...(prof||{}),irrigationHistory:S.get('dss_irrigation_history',[])||[]},soilData:(latestSoil||_omAnchor),persistTheta:false});}catch(e){verdict=null;}
   if(!verdict||verdict.pending){try{verdict=shouldIrrigateToday({wxData:wx,gardenData:prof,soilLastReading:latestSoil});}catch(e){}}
   const vwcRoot=verdict?((verdict.layers&&verdict.layers.root&&verdict.layers.root.vwcDisplayed)??verdict.vwcDisplayed):null;
   const isYes=verdict&&(verdict.verdict==='yes');
@@ -10681,7 +10683,7 @@ function Oggi({wx,prof,setPg}){
       ${sp?html`<div class="dt-note">${usableMm!=null?html`<b>${usableMm}mm utilizzabili</b> · capacità ${capMm}mm · suolo ${soilType}.<br/>`:''}Acqua ricevuta: <b>${rain7}mm</b> ultimi 7gg · <b>${rain30}mm</b> ultimi 30gg.</div>`:''}
       <div class="dt-eye" style="margin-top:18px;">Ultime irrigazioni · 7 giorni</div>
       ${irrHist7.length?html`<div>${irrHist7.slice(0,2).map((h,i)=>{const f=_irrFmt(h);return html`<div class="dt-val" key=${i}><span class="dt-val-l">${f.dd} · ${f.zn}</span><span class="dt-val-r">${f.mins!=null?(f.mins+' min'):''}${f.lit!=null?(' · '+f.lit+' L'):''}</span></div>`;})}<button class="dt-goto dt-ghost" style="margin-top:8px;" onClick=${openS('sh-irrhist')}>Vedi tutte le irrigazioni (${irrHist7.length}) ${goChev}</button></div>`:html`<div class="dt-note">Nessuna irrigazione registrata negli ultimi 7 giorni. Registrala col tasto + o dal bottone Irrigazione.</div>`}
-      <button class="dt-goto" onClick=${()=>{closeS();setPg&&setPg('irrigazione');}}>Vai a Il mio prato ${goChev}</button></div>`},
+      <button class="dt-goto" onClick=${()=>setSheet('sh-irrlog')}>Registra irrigazione ${goChev}</button></div>`},
     'sh-irrhist':{title:'Ultime irrigazioni',body:html`<div>
       <div class="dt-note" style="margin-top:0;">Irrigazioni registrate negli ultimi 7 giorni. Incidono sul bilancio idrico e sull'umidità stimata del suolo.</div>
       ${irrHist7.length?irrHist7.map((h,i)=>{const f=_irrFmt(h);return html`<div class="dt-val" key=${h.id||i} style="align-items:center;">
@@ -10818,7 +10820,7 @@ function Oggi({wx,prof,setPg}){
 /* ===== fine Sezione OGGI ===== */
 
 /* ===== LAWNLY RE-SKIN — Sezione METEO (1:1 plus.html) ===== */
-function _wxIcon(code,precip){const c=(code!=null&&!isNaN(+code))?+code:null;if(c!=null){if(c<=2)return'sun';if(c<=48)return'cloud';return'rain';}if(precip!=null&&precip>0.5)return'rain';return'sun';}
+function _wxIcon(code,precip){const p=(precip!=null&&!isNaN(+precip))?+precip:null;const c=(code!=null&&!isNaN(+code))?+code:null;if(p!=null&&p>=0.5)return'rain';if(c!=null){if(c<=2)return'sun';return'cloud';}if(precip!=null&&precip>0.5)return'rain';return'sun';}
 function _wxSvg(kind){
   if(kind==='rain')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 12.5a4 4 0 1 1-7-2.6 6 6 0 1 1 10 3.3"/><line class="drop d1" x1="8" y1="18" x2="8" y2="20.5"/><line class="drop d2" x1="12" y1="18" x2="12" y2="21.5"/><line class="drop d3" x1="16" y1="18" x2="16" y2="20.5"/></svg>`;
   if(kind==='cloud')return html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a4 4 0 0 0 0-8 6 6 0 0 0-11.3-1.5A4.5 4.5 0 0 0 6 18Z"/></svg>`;
