@@ -7798,10 +7798,12 @@ function calcWaterBalance(params){
     // sull'argilla la pioggia restava in superficie ed evaporava). Cascata FAO-56 per ogni tessitura:
     // pioggia+irrig riempiono la superficie -> troversamento alla root -> eccesso = drenaggio profondo.
     const _input=_rain+_irrMm;
-    _tS=_tS+_input/_lp.surface.depth/1000;
+    const _deepFrac=0.5; // frazione d'acqua che infiltra diretta nella root zone (il resto resta in superficie)
+    const _toRoot=_input*_deepFrac, _toSurf=_input*(1-_deepFrac);
+    _tS=_tS+_toSurf/_lp.surface.depth/1000;
     let _overMm=0;
     if(_tS>_lp.surface.fc){_overMm=(_tS-_lp.surface.fc)*_lp.surface.depth*1000;_tS=_lp.surface.fc;}
-    _tR=_tR+_overMm/_lp.root.depth/1000+_capRise/_lp.root.depth/1000;
+    _tR=_tR+(_toRoot+_overMm)/_lp.root.depth/1000+_capRise/_lp.root.depth/1000;
     if(_tR>_lp.root.fc){_tR=_lp.root.fc;} // eccesso oltre fc = drenaggio profondo (perso)
     const _Ke=Math.max(0,Math.min(1,(_tS-_lp.surface.wp)/Math.max(0.001,_lp.surface.fc-_lp.surface.wp)));
     _tS=Math.max(_lp.surface.wp,_tS-_et0*_Ke*_kexp*0.35/_lp.surface.depth/1000);
@@ -10582,13 +10584,16 @@ function Oggi({wx,prof,setPg}){
 
   const latestSoil=(()=>{const a=soilData.filter(d=>d.dt).sort((x,y)=>(y.dt||'').localeCompare(x.dt||''));return a[0]||soilData[0]||null;})();
   const _omAnchor=(wx&&wx.soilMoistRoot!=null)?{um:Math.round(wx.soilMoistRoot*100),dt:((wx.history&&wx.history.length&&wx.history[wx.history.length-1].date)||new Date().toISOString().slice(0,10)),source:'open-meteo'}:null;
-  let verdict=null;try{verdict=calcWaterBalance({wxData:wx,gardenData:{...(prof||{}),irrigationHistory:S.get('dss_irrigation_history',[])||[]},soilData:latestSoil,persistTheta:false});}catch(e){verdict=null;}
+  let verdict=null;try{verdict=calcWaterBalance({wxData:wx,gardenData:{...(prof||{}),irrigationHistory:(S.get('dss_irrigation_history',[])||[]).map(h=>({...h,date:String(h.timestamp||h.date||'').slice(0,10),mm:(h.totalLiters!=null&&prof&&prof.totalArea)?(h.totalLiters/(+prof.totalArea||100)):(h.mm||0)}))},soilData:latestSoil,persistTheta:false});}catch(e){verdict=null;}
   if(!verdict||verdict.pending){try{verdict=shouldIrrigateToday({wxData:wx,gardenData:prof,soilLastReading:latestSoil});}catch(e){}}
   const vwcRoot=verdict?((verdict.layers&&verdict.layers.root&&verdict.layers.root.vwcDisplayed)??verdict.vwcDisplayed):null;
-  const isYes=verdict&&(verdict.verdict==='yes');
   const vState=verdict?verdict.verdict:'no';
+  // Verdetto coerente con la pioggia REALE prevista: "aspetta pioggia" solo se piove davvero.
+  const _rain2d=(()=>{try{const arr=(wx&&(wx.forecast7||wx.forecast))||[];const td=new Date().toISOString().slice(0,10);return arr.filter(d=>(d.date||d.dt||'')>=td).slice(0,2).reduce((s2,d)=>s2+(parseFloat(d.precipitation!=null?d.precipitation:d.rain)||0),0);}catch(e){return 0;}})();
+  const rainBlocks=_rain2d>=5;
+  const isYes=verdict&&((vState==='yes')||(vState==='wait'&&!rainBlocks));
   const vCls=isYes?'yes':'no';
-  const vNoLabel=vState==='wait'?'No, aspetta, pioggia in arrivo':(vState==='monitor'?'Valuta: bilancio al limite':'No, il suolo è umido');
+  const vNoLabel=(vState==='wait'&&rainBlocks)?'No, aspetta — pioggia in arrivo':(vState==='monitor'?'Valuta: bilancio al limite':'No, il suolo è umido');
   const vReason=verdict?verdict.reason:'Dati in caricamento…';
   // === Consenso a due modelli: FAO-56 (bilancio) + soil-moisture Open-Meteo ===
   const _soilTypeC=(prof&&(prof.soilType||prof.soilTexture))||'loam';
