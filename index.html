@@ -7794,18 +7794,17 @@ function calcWaterBalance(params){
       ?(_soilType==='clay-loam'?0.9:_soilType==='silt-loam'?1.4:_soilType==='loam'?1.1:0.7)
       :0;
     // Percolazione diretta pioggia → root (FAO-56: la pioggia si infiltra nel profilo, non resta solo in superficie)
-    // drainRate (0.14-0.42) controlla la frazione che raggiunge la root zone direttamente
-    const _percFrac=Math.min(0.65,_lp.drainRate*2.5); // silt-loam≈0.55, sandy-loam≈0.90→clamp 0.65
-    const _rainSurface=_rain*(1-_percFrac)+_irrMm; // pioggia che resta in superficie + irrigazione
-    const _rainRoot=_rain*_percFrac;                // pioggia che percola direttamente alla root
-    const _input=_rainSurface;
-    // Surface: fill from surface-rain portion, evaporate Ke fraction
-    const _drainS=Math.max(0,_tS+_input/_lp.surface.depth/1000-_lp.surface.fc);
-    _tS=Math.min(_lp.surface.fc,_tS+_input/_lp.surface.depth/1000);
+    // drainRate non governa piu' la frazione di pioggia alla root (era fisica rovesciata:
+    // sull'argilla la pioggia restava in superficie ed evaporava). Cascata FAO-56 per ogni tessitura:
+    // pioggia+irrig riempiono la superficie -> troversamento alla root -> eccesso = drenaggio profondo.
+    const _input=_rain+_irrMm;
+    _tS=_tS+_input/_lp.surface.depth/1000;
+    let _overMm=0;
+    if(_tS>_lp.surface.fc){_overMm=(_tS-_lp.surface.fc)*_lp.surface.depth*1000;_tS=_lp.surface.fc;}
+    _tR=_tR+_overMm/_lp.root.depth/1000+_capRise/_lp.root.depth/1000;
+    if(_tR>_lp.root.fc){_tR=_lp.root.fc;} // eccesso oltre fc = drenaggio profondo (perso)
     const _Ke=Math.max(0,Math.min(1,(_tS-_lp.surface.wp)/Math.max(0.001,_lp.surface.fc-_lp.surface.wp)));
     _tS=Math.max(_lp.surface.wp,_tS-_et0*_Ke*_kexp*0.35/_lp.surface.depth/1000);
-    // Root: receives surface overflow + direct rain percolation + capillary rise
-    _tR=Math.min(_lp.root.fc,_tR+_drainS/_lp.root.depth/1000+_rainRoot/_lp.root.depth/1000+_capRise/_lp.root.depth/1000);
     const _KsD=Math.max(0,Math.min(1,(_tR-_lp.root.wp)/Math.max(0.001,_lp.root.fc-_lp.root.wp)));
     _tR=Math.max(_lp.root.wpFloor||_lp.root.wp,_tR-_et0*_Kcb*_KsD*_kexp/_lp.root.depth/1000);
   }
@@ -10591,7 +10590,12 @@ function Oggi({wx,prof,setPg}){
   const vCls=isYes?'yes':'no';
   const vNoLabel=vState==='wait'?'No, aspetta, pioggia in arrivo':(vState==='monitor'?'Valuta: bilancio al limite':'No, il suolo è umido');
   const vReason=verdict?verdict.reason:'Dati in caricamento…';
-  const moist=(()=>{if(vwcRoot!=null&&!isNaN(vwcRoot))return Math.round(vwcRoot);if(latestSoil&&latestSoil.um!=null)return Math.round(latestSoil.um);if(verdict&&typeof verdict.soilHumidity==='number')return Math.round(verdict.soilHumidity);return null;})();
+  // === Consenso a due modelli: FAO-56 (bilancio) + soil-moisture Open-Meteo ===
+  const _soilTypeC=(prof&&(prof.soilType||prof.soilTexture))||'loam';
+  const faoVwc=(vwcRoot!=null&&!isNaN(vwcRoot))?Math.round(vwcRoot):null;
+  const omVwc=(wx&&wx.soilMoistRoot!=null&&typeof thetaToVwcUserScale==='function')?Math.round(thetaToVwcUserScale(wx.soilMoistRoot,_soilTypeC)):null;
+  const _consensus=(()=>{if(faoVwc!=null&&omVwc!=null){const v=Math.round((faoVwc+omVwc)/2),d=Math.abs(faoVwc-omVwc);return{v,conf:d<=8?'alta':(d<=18?'media':'bassa'),d,two:true};}if(faoVwc!=null)return{v:faoVwc,conf:'media',d:null,two:false};if(omVwc!=null)return{v:omVwc,conf:'media',d:null,two:false};return{v:null,conf:'bassa',d:null,two:false};})();
+  const moist=(()=>{if(_consensus.v!=null)return _consensus.v;if(latestSoil&&latestSoil.um!=null)return Math.round(latestSoil.um);if(verdict&&typeof verdict.soilHumidity==='number')return Math.round(verdict.soilHumidity);return null;})();
   const needMm=(verdict&&verdict.needMm!=null)?verdict.needMm:null;
   const flowR=(prof&&prof.flowRateLpm)||8;
   const minZone=(()=>{if(!isYes)return [];const nm=needMm||4;const zs=(prof&&prof.zones&&prof.zones.length)?prof.zones:[{id:'A',name:'Prato'}];return zs.map(z=>{const a=parseFloat(z.area||z.m2)||((prof&&prof.totalArea)?(prof.totalArea/zs.length):50);return{name:z.name||('Zona '+(z.id||'')),min:Math.max(1,Math.round((nm*a)/flowR))};});})();
@@ -10764,7 +10768,7 @@ function Oggi({wx,prof,setPg}){
       <div style="flex:1;min-width:0;"><div class="verdict-q">Devo irrigare oggi?</div>
         <div class="verdict-a">${isYes?'Sì, meglio irrigare':vNoLabel}</div>
         <div class="vmoist"><span class="vmoist-v">${moist==null?'—':moist}%</span><span class="vmoist-bar"><${SlideI} mode="width" target=${moist||0}/></span></div>
-        ${(()=>{try{return html`<div style="font-size:10px;line-height:1.5;color:#0a4;background:#eefef4;border:1px solid #9d9;border-radius:8px;padding:6px 8px;margin-top:6px;font-family:ui-monospace,monospace">DBG2 · misura.um=${latestSoil?(latestSoil.um==null?"vuoto":latestSoil.um):"NULL"} · dt=${latestSoil?String(latestSoil.dt).slice(0,16):"-"} · motore=${verdict?(verdict.thetaSource||"?"):"no-verdict"} · vwc=${vwcRoot==null?"-":vwcRoot}% · #misure=${(soilData||[]).length}</div>`;}catch(e){return html`<div style="font-size:10px;color:#b00">DBG2 err: ${e.message}</div>`;}})()}
+        ${(()=>{try{if(_consensus.v==null)return '';const c=_consensus.conf;const col=c==='alta'?'#16a34a':c==='media'?'#2563eb':'#d97706';const lab=c==='alta'?'Stima affidabile':c==='media'?'Stima attendibile':'Stima indicativa';const src=_consensus.two?('2 modelli concordi (±'+_consensus.d+'%)'):'1 fonte disponibile';return html`<div style="display:flex;align-items:center;gap:7px;margin-top:7px;font-size:11px;font-weight:600;color:${col}"><span style="width:8px;height:8px;border-radius:50%;background:${col};display:inline-block;flex-shrink:0"></span><span>${lab}</span><span style="color:var(--t3);font-weight:500">· ${src}</span></div>`;}catch(e){return '';}})()}
         ${isYes&&minZone.length?html`<div class="virr">${minZone.map((z,i)=>html`<div class="virr-z" key=${i}><span class="virr-min">${z.min}<small>min</small></span><span class="virr-zn">${z.name}</span></div>`)}</div>`:html`<div class="verdict-d">${vReason}${(nextRain)?html` · pioggia ~${nextRain.mm}mm ${nextRain.day}`:''}</div>`}</div>
       <span class="vchev">${goChev}</span>
     </div>
