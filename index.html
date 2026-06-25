@@ -10762,6 +10762,7 @@ function Oggi({wx,prof,setPg}){
       <div style="flex:1;min-width:0;"><div class="verdict-q">Devo irrigare oggi?</div>
         <div class="verdict-a">${isYes?'Sì, meglio irrigare':vNoLabel}</div>
         <div class="vmoist"><span class="vmoist-v">${moist==null?'—':moist}%</span><span class="vmoist-bar"><${SlideI} mode="width" target=${moist||0}/></span></div>
+        ${(()=>{try{const omr=(wx&&wx.soilMoistRoot!=null)?wx.soilMoistRoot:null;const r7=((wx&&wx.history)||[]).slice(-7).reduce((a,d)=>a+(parseFloat(d.precipitation!=null?d.precipitation:(d.rain!=null?d.rain:0))||0),0);const anc=latestSoil?'strumento':(_omAnchor?'open-meteo':'nessuno(ricostruzione)');return html`<div style="font-size:10px;line-height:1.55;color:#b00020;background:#fff3f3;border:1px solid #f1b6c4;border-radius:8px;padding:6px 8px;margin-top:6px;font-family:ui-monospace,monospace">DEBUG · OM soilMoist=${omr==null?"NULL":omr.toFixed(3)} · OM um=${_omAnchor?_omAnchor.um:"-"} · pioggia7gg=${r7.toFixed(1)}mm · fonte=${anc} · vwc=${vwcRoot==null?"-":vwcRoot}% · θroot=${verdict&&verdict.thetaRoot!=null?(+verdict.thetaRoot).toFixed(3):'-'}</div>`;}catch(e){return '';}})()}
         ${isYes&&minZone.length?html`<div class="virr">${minZone.map((z,i)=>html`<div class="virr-z" key=${i}><span class="virr-min">${z.min}<small>min</small></span><span class="virr-zn">${z.name}</span></div>`)}</div>`:html`<div class="verdict-d">${vReason}${(nextRain)?html` · pioggia ~${nextRain.mm}mm ${nextRain.day}`:''}</div>`}</div>
       <span class="vchev">${goChev}</span>
     </div>
